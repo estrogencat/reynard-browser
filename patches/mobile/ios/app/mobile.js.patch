@@ -44,7 +44,7 @@ index e835b1c33d86..3b8cd6d4e48e 100644
 +pref("extensions.installDistroAddons", false);
 +
 +// Require language packs to be signed (bug 1454141)
-+pref("extensions.langpacks.signatures.required", true);
++pref("extensions.langpacks.signatures.required", false);
 +
 +// Enables some extra Extension System Logging (can reduce performance)
 +pref("extensions.logging.enabled", false);
@@ -99,7 +99,7 @@ index e835b1c33d86..3b8cd6d4e48e 100644
 +pref("widget.non-native-theme.use-theme-accent", false);
 +
 +// Require extensions to be signed (bug 1244329)
-+pref("xpinstall.signatures.required", true);
++pref("xpinstall.signatures.required", false);
 +
 +pref("xpinstall.whitelist.add", "https://addons.mozilla.org");
 +pref("xpinstall.whitelist.fileRequest", false);
