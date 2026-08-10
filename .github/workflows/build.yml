@@ -1,0 +1,106 @@
+name: Build Reynard
+
+on:
+  workflow_dispatch:
+    inputs:
+      xcode-version:
+        description: "Xcode version for setup-xcode (e.g. 16.2, or 'latest-stable')"
+        required: false
+        default: "latest-stable"
+      tag-name:
+        description: "Release tag to create/update (blank = auto 'build-<run number>')"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 350
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag-name != '' && inputs.tag-name || format('build-{0}', github.run_number) }}
+
+    steps:
+      - name: Checkout Reynard
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ inputs.xcode-version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install ldid
+        run: brew install ldid
+
+      - name: Fetch Gecko engine source
+        run: ./tools/development/update-gecko.sh
+
+      - name: Apply Reynard patches to Gecko
+        run: ./tools/development/apply-patches.sh
+
+      - name: Build idevice static library
+        run: ./tools/development/build-idevice.sh
+
+      - name: Build Gecko engine
+        run: ./tools/development/build-gecko.sh
+
+      - name: Archive Reynard.app (unsigned)
+        run: |
+          set -euo pipefail
+          DIST_DIR="$PWD/dist"
+          PROJECT_PATH="$PWD/browser/Reynard.xcodeproj"
+          XCCONFIG_PATH="$PWD/browser/Configuration/Reynard.xcconfig"
+
+          rm -rf "$DIST_DIR"
+          mkdir -p "$DIST_DIR"
+          cp "$XCCONFIG_PATH" "$DIST_DIR/Reynard.xcconfig"
+
+          BUILD_SHA=$(git rev-parse HEAD | cut -c1-7)
+          sed -i '' "s/CURRENT_BUILD = .*/CURRENT_BUILD = $BUILD_SHA/" "$DIST_DIR/Reynard.xcconfig"
+
+          # tools/release/build-app.sh does this same archive call, but
+          # relies on Xcode's "Automatic" signing (CODE_SIGN_IDENTITY =
+          # "Apple Development" in the pbxproj), which needs an Apple ID
+          # signed into Xcode. CI has none, so the trailing overrides below
+          # force an unsigned .app instead -- the create-ipa.sh step
+          # ldid-signs everything afterward anyway, so an Xcode signature
+          # was never actually needed in this pipeline.
+          xcodebuild archive \
+            -scheme "Reynard" \
+            -archivePath "$DIST_DIR/Reynard.xcarchive" \
+            -project "$PROJECT_PATH" \
+            -sdk iphoneos \
+            -arch arm64 \
+            -configuration Release \
+            -xcconfig "$DIST_DIR/Reynard.xcconfig" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=
+
+      - name: Package IPA (ldid ad-hoc signed)
+        run: ./tools/release/create-ipa.sh
+
+      - name: Publish to release
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: Reynard ${{ env.RELEASE_TAG }}
+          body: |
+            Automated build from ${{ github.sha }} (run #${{ github.run_number }}).
+          draft: false
+          prerelease: true
+          files: |
+            dist/Reynard.ipa
+            dist/Reynard-TrollStore.tipa
+            dist/Reynard-Jailbroken.ipa
