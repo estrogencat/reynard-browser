@@ -38,20 +38,39 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Init idevice submodule
+        run: git submodule update --init --recursive support/idevice
+
+      - name: Cache idevice Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "support/idevice -> target"
+
       - name: Install ldid
         run: brew install ldid
 
+      - name: Cache patched Gecko engine
+        id: cache-gecko
+        uses: actions/cache@v4
+        with:
+          path: engine/firefox
+          key: gecko-engine-${{ hashFiles('engine/release.txt') }}-${{ hashFiles('patches/**') }}
+
       - name: Fetch Gecko engine source
+        if: steps.cache-gecko.outputs.cache-hit != 'true'
         run: ./tools/development/update-gecko.sh
 
       - name: Apply Reynard patches to Gecko
+        if: steps.cache-gecko.outputs.cache-hit != 'true'
         run: ./tools/development/apply-patches.sh
 
       - name: Build idevice static library
         run: ./tools/development/build-idevice.sh
 
       - name: Build Gecko engine
-        run: ./tools/development/build-gecko.sh
+        run: |
+          touch engine/firefox/.mozconfig
+          ./tools/development/build-gecko.sh
 
       - name: Archive Reynard.app (unsigned)
         run: |
@@ -66,14 +85,6 @@ jobs:
 
           BUILD_SHA=$(git rev-parse HEAD | cut -c1-7)
           sed -i '' "s/CURRENT_BUILD = .*/CURRENT_BUILD = $BUILD_SHA/" "$DIST_DIR/Reynard.xcconfig"
-
-          # tools/release/build-app.sh does this same archive call, but
-          # relies on Xcode's "Automatic" signing (CODE_SIGN_IDENTITY =
-          # "Apple Development" in the pbxproj), which needs an Apple ID
-          # signed into Xcode. CI has none, so the trailing overrides below
-          # force an unsigned .app instead -- the create-ipa.sh step
-          # ldid-signs everything afterward anyway, so an Xcode signature
-          # was never actually needed in this pipeline.
           xcodebuild archive \
             -scheme "Reynard" \
             -archivePath "$DIST_DIR/Reynard.xcarchive" \
