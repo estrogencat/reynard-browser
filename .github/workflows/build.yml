@@ -52,10 +52,10 @@ jobs:
       - name: Install cbindgen
         run: brew install cbindgen
 
-      - name: Install LLVM toolchain
+      - name: Install lld
         run: |
-          brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          brew install lld
+          echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
 
       - name: Cache patched Gecko engine
         id: cache-gecko
@@ -78,8 +78,6 @@ jobs:
       - name: Build Gecko engine
         run: |
           touch engine/firefox/.mozconfig
-          export WASM_CC="$(brew --prefix llvm)/bin/clang"
-          export WASM_CXX="$(brew --prefix llvm)/bin/clang++"
           {
             echo "ac_add_options --enable-application=mobile/ios"
             echo "ac_add_options --target=aarch64-apple-ios"
@@ -88,7 +86,6 @@ jobs:
             echo "ac_add_options --enable-optimize"
             echo "ac_add_options --enable-release"
             echo "ac_add_options --enable-rust-simd"
-            echo "ac_add_options --enable-lto"
             echo "ac_add_options --disable-debug"
             echo "ac_add_options --disable-tests"
             echo "ac_add_options --without-wasm-sandboxed-libraries"
