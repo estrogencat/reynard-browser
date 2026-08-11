@@ -106,6 +106,7 @@ jobs:
 
           BUILD_SHA=$(git rev-parse HEAD | cut -c1-7)
           sed -i '' "s/CURRENT_BUILD = .*/CURRENT_BUILD = $BUILD_SHA/" "$DIST_DIR/Reynard.xcconfig"
+          sed -i '' 's#SIGN_IDENTITY=.*#SIGN_IDENTITY="-"#' "$PWD/browser/Scripts/AddGecko.sh"
 
           xcodebuild archive \
             -scheme "Reynard" \
