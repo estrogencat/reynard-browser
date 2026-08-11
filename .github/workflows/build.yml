@@ -117,7 +117,7 @@ jobs:
             -xcconfig "$DIST_DIR/Reynard.xcconfig" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=
+            CODE_SIGN_IDENTITY=-
 
       - name: Package IPA (ldid ad-hoc signed)
         run: ./tools/release/create-ipa.sh
