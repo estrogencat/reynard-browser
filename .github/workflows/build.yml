@@ -54,6 +54,9 @@ jobs:
           brew install lld
           echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
 
+      - name: Install cbindgen
+        run: brew install cbindgen
+
       - name: Cache patched Gecko engine
         id: cache-gecko
         uses: actions/cache@v4
